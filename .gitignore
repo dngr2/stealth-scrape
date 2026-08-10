@@ -13,6 +13,8 @@ env/
 *.csv
 *.json
 *.jsonl
+!examples/**/*.csv
+!examples/**/*.json
 !examples/*.csv
 !examples/*.json
 
@@ -24,3 +26,6 @@ screenshots/
 .idea/
 .vscode/
 .DS_Store
+
+# unpublished deliverable code
+examples/amazon/amazon_sample.py
