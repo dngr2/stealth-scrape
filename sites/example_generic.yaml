@@ -1,0 +1,36 @@
+# Template for a new site. Copy, rename, adjust the selectors.
+#
+# Finding selectors: open the search page in Chrome, right-click a result →
+# Inspect. Prefer data-* attributes and semantic classes over generated ones
+# like `.css-1x2y3z`, which change on every deploy.
+
+name: example
+description: Template — copy this to add a site
+base_url: https://books.toscrape.com
+search_url: "https://books.toscrape.com/catalogue/page-{query}.html"
+query_sep: "+"
+wait: 2
+scrolls: 1
+
+card: 'article.product_pod'
+
+fields:
+  title:
+    css: 'h3 a'
+    attr: title
+    required: true
+  price:
+    css: '.price_color'
+  availability:
+    css: '.instock.availability'
+  url:
+    css: 'h3 a'
+    attr: href
+    absolute: true
+  rating:
+    css: '.star-rating'
+    attr: class
+    regex: 'star-rating (\w+)'
+
+fallback:
+  enabled: false

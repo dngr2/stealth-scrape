@@ -1,0 +1,26 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+.venv/
+venv/
+env/
+
+# scraped output — keep examples/, ignore working runs
+*.csv
+*.json
+*.jsonl
+!examples/*.csv
+!examples/*.json
+
+# debug artefacts
+*.html
+*.png
+screenshots/
+.pytest_cache/
+.idea/
+.vscode/
+.DS_Store

@@ -1,0 +1,33 @@
+name: emag
+description: eMAG.ro retail — AWS WAF protected, falls back to search engines
+base_url: https://www.emag.ro
+search_url: "https://www.emag.ro/search/{query}"
+query_sep: "+"
+wait: 6
+scrolls: 4
+
+card: '.card-item'
+
+fields:
+  title:
+    css: '.card-v2-title'
+    required: true
+  price:
+    css: '.product-new-price'
+  old_price:
+    css: '.pricing .rrp-lp30d-content'
+  rating:
+    css: '.star-rating-text'
+  url:
+    css: 'a.card-v2-thumb'
+    attr: href
+    absolute: true
+    required: true
+
+# eMAG fronts search with AWS WAF. Product pages are usually still reachable,
+# and they are indexed — so site: search recovers the URLs even when the
+# in-site search endpoint refuses us outright.
+fallback:
+  enabled: true
+  domain: emag.ro
+  url_contains: /pd/

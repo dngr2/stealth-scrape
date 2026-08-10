@@ -1,0 +1,37 @@
+name: olx
+description: OLX.ro classifieds — listings with price and location
+base_url: https://www.olx.ro
+search_url: "https://www.olx.ro/oferte/q-{query}/"
+query_sep: "-"
+wait: 4
+scrolls: 3
+
+# One result card. OLX ships stable data-testid hooks, which survive their
+# frequent CSS-class churn — always prefer these over generated class names.
+card: '[data-testid="l-card"]'
+
+fields:
+  title:
+    # Was data-cy="ad-card-title" until OLX moved it to data-testid — a good
+    # example of why `required: true` matters: without it this silently
+    # returns rows with an empty title instead of failing loudly.
+    # ...and target the inner h4, because the container also holds the price.
+    css: '[data-testid="ad-card-title"] h4'
+    required: true
+  price:
+    css: '[data-testid="ad-price"]'
+  location_date:
+    css: '[data-testid="location-date"]'
+  url:
+    css: 'a'
+    attr: href
+    absolute: true
+    required: true
+  image:
+    css: 'img'
+    attr: src
+
+fallback:
+  enabled: true
+  domain: olx.ro
+  url_contains: /d/oferta/
