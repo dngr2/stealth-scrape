@@ -4,6 +4,8 @@ Config-driven Selenium scraping that keeps working when a site doesn't want to b
 
 Most scrapers break for one of three reasons: the site returns a block page with a `200 OK`, the content is rendered client-side and never appears in the HTML, or a selector changed and the scraper silently emits empty rows. This handles all three — and **adding a new site is a YAML file, not code**.
 
+![stealth-scrape demo](docs/demo.gif)
+
 ```bash
 python -m stealth_scrape --site olx --query "rtx 3090" --out results.csv
 ```
