@@ -201,3 +201,28 @@ The rate limiting here is deliberately conservative by default. Leave it that wa
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+## A false positive this repo had, and how it was fixed
+
+`stealth-scrape` reported peopleperhour.com as WAF-blocked while the page had
+loaded perfectly — 348KB of HTML, 171 job listings visible. The marker
+`aws-waf` had matched `aws-waf-token=...` inside the site's own session JSON.
+
+The site is *protected* by AWS WAF. So is much of the web. Treating a vendor's
+name as proof of a block made the detector fire on exactly the sites it exists
+to help with — the inverse of the failure it was built to prevent.
+
+Markers are now split by strength:
+
+| Strength | Example | Decides on its own? |
+|---|---|---|
+| **Strong** | "Sorry, you have been blocked" | Yes — no normal page says this |
+| **Weak** | `aws-waf`, `datadome`, `g-recaptcha` | Only when the page also has no content |
+
+Content is measured as visible text with `<script>` and `<style>` stripped,
+because a block page is often 200KB of challenge JavaScript wrapped around one
+sentence, and raw length would call that content.
+
+Two existing tests asserted the old behaviour and were changed deliberately —
+they had encoded the bug. Both now assert the corrected rule, with the reason
+in the docstring.
