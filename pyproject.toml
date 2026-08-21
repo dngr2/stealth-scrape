@@ -9,7 +9,7 @@ description = "Config-driven stealth scraper that classifies block pages before 
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
-dependencies = ["selenium>=4.20"]
+dependencies = ["selenium>=4.20", "PyYAML>=6.0"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.5"]
