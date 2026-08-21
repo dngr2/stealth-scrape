@@ -57,20 +57,46 @@ class Scraper:
 
     # ---------- page loading ----------
 
-    def load(self, url: str, wait: float = 4.0, scrolls: int = 3) -> str:
-        """Navigate, clear consent, trigger lazy-loading, return page source."""
+    def load(self, url: str, wait: float = 4.0, scrolls: int = 3,
+             ready_selector: str | None = None) -> str:
+        """Navigate, clear consent, trigger lazy-loading, return page source.
+
+        Instead of a blind fixed sleep, wait for the document to actually finish
+        loading (and, if given, for a content selector to appear) up to `wait`
+        seconds — returning as soon as the page is ready rather than always
+        waiting the full timeout. This is both faster on quick pages and more
+        reliable on slow ones.
+        """
         try:
             self.driver.get(url)
         except Exception as exc:
             self._log(f"    load error: {exc}")
             return ""
-        time.sleep(wait)
+        self._wait_ready(wait, ready_selector)
         dismiss_cookies(self.driver)
-        time.sleep(0.8)
         for _ in range(scrolls):
             self.driver.execute_script("window.scrollBy(0, document.body.scrollHeight/3);")
-            time.sleep(0.9)
+            # brief settle for lazy content to render after each scroll; there is
+            # no element to await here, so a short bounded pause is unavoidable
+            time.sleep(0.5)
         return self.driver.page_source
+
+    def _wait_ready(self, timeout: float, selector: str | None = None) -> None:
+        """Block until document.readyState == 'complete' (and `selector` is present
+        if supplied), or `timeout` elapses. Never raises — a slow/partial page is
+        handled downstream by the block classifier and extraction."""
+        from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        with contextlib.suppress(Exception):
+            WebDriverWait(self.driver, timeout).until(
+                lambda d: d.execute_script("return document.readyState") == "complete"
+            )
+        if selector:
+            with contextlib.suppress(Exception):
+                WebDriverWait(self.driver, timeout).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                )
 
     # ---------- extraction ----------
 
@@ -119,7 +145,7 @@ class Scraper:
         url = cfg.url_for(query)
         self._log(f"  [{cfg.name}] {query!r}\n    → {url}")
 
-        html = self.load(url, wait=cfg.wait, scrolls=cfg.scrolls)
+        html = self.load(url, wait=cfg.wait, scrolls=cfg.scrolls, ready_selector=cfg.card)
         verdict = blocking.inspect(html)
 
         if verdict:
