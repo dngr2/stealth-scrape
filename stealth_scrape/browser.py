@@ -6,6 +6,7 @@ commercial sites. A real browser with automation fingerprints removed does not.
 from __future__ import annotations
 
 import contextlib
+import os
 from dataclasses import dataclass, field
 
 from selenium import webdriver
@@ -120,6 +121,8 @@ class BrowserConfig:
     # disables TLS validation, exposing the fetch to man-in-the-middle tampering.
     no_sandbox: bool = False
     ignore_cert_errors: bool = False
+    # Explicit Chromium/Chrome binary path; falls back to $CHROME_BIN if unset.
+    chrome_binary: str = ""
 
 
 def build_driver(cfg: BrowserConfig | None = None) -> webdriver.Chrome:
@@ -130,6 +133,12 @@ def build_driver(cfg: BrowserConfig | None = None) -> webdriver.Chrome:
     """
     cfg = cfg or BrowserConfig()
     opts = Options()
+    # Point Selenium at an explicit Chromium/Chrome binary when one is configured
+    # (e.g. CHROME_BIN=/usr/bin/chromium in the container) — the default lookup
+    # only finds google-chrome, so a chromium-only image would otherwise fail.
+    chrome_bin = cfg.chrome_binary or os.environ.get("CHROME_BIN", "")
+    if chrome_bin:
+        opts.binary_location = chrome_bin
     for arg in STEALTH_ARGS:
         opts.add_argument(arg)
     # opt-in, security-sensitive flags (see BrowserConfig)

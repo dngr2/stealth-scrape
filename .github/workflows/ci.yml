@@ -1,13 +1,39 @@
 name: ci
 on: [push, pull_request]
+permissions:
+  contents: read
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python }}
       - run: pip install -e ".[dev]"
       - run: ruff check .
       - run: pytest -q
+      - name: Dependency audit
+        run: |
+          pip install pip-audit
+          pip-audit || true   # advisory: report vulns without failing the build
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t stealth-scrape:ci .
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          image-ref: stealth-scrape:ci
+          format: table
+          exit-code: "0"   # advisory scan

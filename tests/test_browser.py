@@ -79,3 +79,37 @@ def test_stealth_js_has_no_numeric_plugin_stub():
     assert "PluginArray" in STEALTH_JS
     assert "getParameter" in STEALTH_JS  # WebGL
     assert "permissions" in STEALTH_JS
+
+
+def test_chrome_binary_is_applied_from_env(monkeypatch):
+    added = []
+    binloc = {}
+
+    class FakeOpts:
+        def add_argument(self, a):
+            added.append(a)
+
+        def add_experimental_option(self, *a, **k):
+            pass
+
+        @property
+        def binary_location(self):
+            return binloc.get("v", "")
+
+        @binary_location.setter
+        def binary_location(self, v):
+            binloc["v"] = v
+
+    class FakeDriver:
+        def set_page_load_timeout(self, *a):
+            pass
+
+        def execute_cdp_cmd(self, *a, **k):
+            pass
+
+    monkeypatch.setenv("CHROME_BIN", "/usr/bin/chromium")
+    monkeypatch.setattr(browser, "Options", lambda: FakeOpts())
+    monkeypatch.setattr(browser, "Service", lambda *a, **k: None)
+    monkeypatch.setattr(browser.webdriver, "Chrome", lambda *a, **k: FakeDriver())
+    browser.build_driver()
+    assert binloc["v"] == "/usr/bin/chromium"
