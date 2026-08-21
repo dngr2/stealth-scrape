@@ -19,12 +19,17 @@ DEFAULT_UA = (
 
 # Chrome exposes automation through a handful of tells. These cover the ones
 # that WAF vendors actually fingerprint.
+#
+# SECURITY: `--no-sandbox` and `--ignore-certificate-errors` are deliberately NOT
+# here. This tool renders untrusted remote HTML; disabling the sandbox removes the
+# primary containment for a browser-exploit payload, and ignoring TLS errors opens
+# the fetch to man-in-the-middle tampering. Both are opt-in via BrowserConfig
+# (`no_sandbox` / `ignore_cert_errors`) for the environments that genuinely need
+# them (e.g. running as root in a minimal container), with the risk documented there.
 STEALTH_ARGS = [
     "--disable-blink-features=AutomationControlled",
-    "--no-sandbox",
     "--disable-dev-shm-usage",
     "--disable-gpu",
-    "--ignore-certificate-errors",
     "--no-first-run",
     "--no-default-browser-check",
     "--disable-popup-blocking",
@@ -32,12 +37,59 @@ STEALTH_ARGS = [
 
 # navigator.webdriver is the single most-checked property. It has to be gone
 # before the page's own scripts run, hence addScriptToEvaluateOnNewDocument
-# rather than a plain execute_script after load.
+# rather than a plain execute_script after load. The plugins/WebGL/permissions
+# patches remove the coarser tells that a plain [1,2,3,4,5] stub (itself a bot
+# signal — real navigator.plugins is a PluginArray of MimeType-bearing objects)
+# would leave behind.
 STEALTH_JS = """
 Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
 Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en']});
-Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
-window.chrome = window.chrome || {runtime: {}};
+(() => {
+  const make = (name, filename, desc) => {
+    const p = Object.create(Plugin.prototype);
+    Object.defineProperties(p, {
+      name: {value: name}, filename: {value: filename},
+      description: {value: desc}, length: {value: 1},
+    });
+    return p;
+  };
+  const plugins = [
+    make('Chrome PDF Plugin', 'internal-pdf-viewer', 'Portable Document Format'),
+    make('Chrome PDF Viewer', 'mhjfbmdgcfjbbpaeojofohoefgiehjai', ''),
+    make('Native Client', 'internal-nacl-plugin', ''),
+  ];
+  const arr = Object.create(PluginArray.prototype);
+  plugins.forEach((p, i) => { arr[i] = p; arr[p.name] = p; });
+  Object.defineProperty(arr, 'length', {value: plugins.length});
+  Object.defineProperty(navigator, 'plugins', {get: () => arr});
+})();
+// WebGL vendor/renderer strings — headless/VM often report 'Google SwiftShader',
+// a classic automation tell. Report a common real GPU instead.
+(() => {
+  const patch = (proto) => {
+    const orig = proto.getParameter;
+    proto.getParameter = function (p) {
+      if (p === 37445) return 'Intel Inc.';            // UNMASKED_VENDOR_WEBGL
+      if (p === 37446) return 'Intel Iris OpenGL Engine'; // UNMASKED_RENDERER_WEBGL
+      return orig.call(this, p);
+    };
+  };
+  if (window.WebGLRenderingContext) patch(WebGLRenderingContext.prototype);
+  if (window.WebGL2RenderingContext) patch(WebGL2RenderingContext.prototype);
+})();
+// Notification permission mismatch (default vs granted) is fingerprinted.
+(() => {
+  const orig = window.navigator.permissions && window.navigator.permissions.query;
+  if (orig) {
+    window.navigator.permissions.query = (params) =>
+      params && params.name === 'notifications'
+        ? Promise.resolve({state: Notification.permission})
+        : orig(params);
+  }
+})();
+window.chrome = window.chrome || {};
+window.chrome.runtime = window.chrome.runtime || {};
+window.chrome.app = window.chrome.app || {isInstalled: false};
 """
 
 COOKIE_SELECTORS = [
@@ -61,6 +113,13 @@ class BrowserConfig:
     headless: bool = False
     page_load_timeout: int = 45
     extra_args: list[str] = field(default_factory=list)
+    # SECURITY (both default OFF): only enable in an environment that requires it.
+    # `no_sandbox` removes the Chrome sandbox — the main containment against a
+    # malicious page exploiting the renderer; needed when running as root in some
+    # containers, but a real risk when rendering untrusted sites. `ignore_cert_errors`
+    # disables TLS validation, exposing the fetch to man-in-the-middle tampering.
+    no_sandbox: bool = False
+    ignore_cert_errors: bool = False
 
 
 def build_driver(cfg: BrowserConfig | None = None) -> webdriver.Chrome:
@@ -73,6 +132,11 @@ def build_driver(cfg: BrowserConfig | None = None) -> webdriver.Chrome:
     opts = Options()
     for arg in STEALTH_ARGS:
         opts.add_argument(arg)
+    # opt-in, security-sensitive flags (see BrowserConfig)
+    if cfg.no_sandbox:
+        opts.add_argument("--no-sandbox")
+    if cfg.ignore_cert_errors:
+        opts.add_argument("--ignore-certificate-errors")
     opts.add_argument(f"--window-size={cfg.window_size}")
     opts.add_argument(f"--lang={cfg.lang}")
     opts.add_argument(f"--user-agent={cfg.user_agent}")

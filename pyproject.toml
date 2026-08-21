@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stealth-scrape"
+version = "0.1.0"
+description = "Config-driven stealth scraper that classifies block pages before extraction"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+dependencies = ["selenium>=4.20"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[project.scripts]
+stealth-scrape = "stealth_scrape.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["stealth_scrape*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "W"]
