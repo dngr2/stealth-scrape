@@ -1,6 +1,6 @@
 # Stealth scraper image: headed Chromium under Xvfb (headless Chrome has its own
 # detectable signature), running as a non-root user.
-FROM python:3.11-slim
+FROM python:3.15-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       chromium chromium-driver xvfb fonts-liberation \
